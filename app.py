@@ -3,10 +3,14 @@ import requests
 from flask import Flask, request
 from openai import OpenAI
 
+# ------------------------------
 # Environment variables
+# ------------------------------
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
 OPENAI_KEY = os.environ.get("OPENAI_KEY")
+
+# Set your verify token directly
+VERIFY_TOKEN = "verifymyai"
 
 client = OpenAI(api_key=OPENAI_KEY)
 
@@ -47,16 +51,15 @@ def send_message(recipient_id, msg_text):
     }
     requests.post(url, params=params, json=payload)
 
-
 # ------------------------------
 # GET - Facebook webhook verify
 # ------------------------------
 @app.route('/', methods=['GET'])
 def verify():
+    # Facebook sends hub.verify_token during webhook setup
     if request.args.get("hub.verify_token") == VERIFY_TOKEN:
         return request.args.get("hub.challenge")
     return "Verification failed"
-
 
 # ------------------------------
 # POST - Facebook webhook messages
@@ -88,3 +91,9 @@ def webhook():
                         send_message(sender_id, ai_reply)
 
     return "ok"
+
+# ------------------------------
+# Run the Flask app (for local testing)
+# ------------------------------
+if __name__ == "__main__":
+    app.run(debug=True)
