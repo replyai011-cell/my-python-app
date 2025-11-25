@@ -69,7 +69,7 @@ messages=[
 {"role": "user", "content": user_message}
 ],
 )
-
+https://graph.facebook.com/v21.0/me/
 ai_reply = response.choices[0].message.content
 send_message(sender_id, ai_reply)
 
