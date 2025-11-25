@@ -3,6 +3,7 @@ import requests
 from flask import Flask, request
 from openai import OpenAI
 
+# Environment variables
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
 OPENAI_KEY = os.environ.get("OPENAI_KEY")
@@ -31,46 +32,59 @@ General rules:
 4. If they ask about condition → give a short general condition: “Good condition, works great.”
 5. ALWAYS ask: “When would you like to come see it / pick it up?”
 6. Never give exact address unless seller provides it; instead say: “Pickup in Parma, OH.”
-7. Keep it polite, simple, and fast: no long paragraphs.
+7. Keep it polite, simple, and fast—no long paragraphs.
 """
 
+# ------------------------------
+# Send Message to Facebook API
+# ------------------------------
 def send_message(recipient_id, msg_text):
-url = "https://graph.facebook.com/v12.0/me/messages"
-params = {"access_token": PAGE_ACCESS_TOKEN}
-payload = {
-"recipient": {"id": recipient_id},
-"message": {"text": msg_text}
-}
-requests.post(url, params=params, json=payload)
+    url = "https://graph.facebook.com/v21.0/me/messages"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    payload = {
+        "recipient": {"id": recipient_id},
+        "message": {"text": msg_text}
+    }
+    requests.post(url, params=params, json=payload)
 
+
+# ------------------------------
+# GET - Facebook webhook verify
+# ------------------------------
 @app.route('/', methods=['GET'])
 def verify():
-if request.args.get("hub.verify_token") == VERIFY_TOKEN:
-return request.args.get("hub.challenge")
-return "Verification failed"
+    if request.args.get("hub.verify_token") == VERIFY_TOKEN:
+        return request.args.get("hub.challenge")
+    return "Verification failed"
 
+
+# ------------------------------
+# POST - Facebook webhook messages
+# ------------------------------
 @app.route('/', methods=['POST'])
 def webhook():
-data = request.get_json()
+    data = request.get_json()
 
-if "entry" in data:
-for entry in data["entry"]:
-if "messaging" in entry:
-for messaging_event in entry["messaging"]:
-if "message" in messaging_event:
-sender_id = messaging_event["sender"]["id"]
-user_message = messaging_event["message"].get("text", "")
+    if "entry" in data:
+        for entry in data["entry"]:
+            if "messaging" in entry:
+                for event in entry["messaging"]:
+                    if "message" in event:
+                        sender_id = event["sender"]["id"]
+                        user_message = event["message"].get("text", "")
 
-# Generate AI reply
-response = client.chat.completions.create(
-model="gpt-4.1-mini",
-messages=[
-{"role": "system", "content": SELLER_BRAIN},
-{"role": "user", "content": user_message}
-],
-)
-https://graph.facebook.com/v21.0/me/
-ai_reply = response.choices[0].message.content
-send_message(sender_id, ai_reply)
+                        # Generate AI reply
+                        response = client.chat.completions.create(
+                            model="gpt-4.1-mini",
+                            messages=[
+                                {"role": "system", "content": SELLER_BRAIN},
+                                {"role": "user", "content": user_message}
+                            ],
+                        )
 
-return "ok"
+                        ai_reply = response.choices[0].message.content
+
+                        # Send response back to user
+                        send_message(sender_id, ai_reply)
+
+    return "ok"
